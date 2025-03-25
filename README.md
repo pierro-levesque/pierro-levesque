@@ -1,4 +1,4 @@
-## Hi there 👋
+## Hi theres 👋
 
 <!--
 **pierro-levesque/pierro-levesque** is a ✨ _special_ ✨ repository because its `README.md` (this file) appears on your GitHub profile.
