@@ -1,10 +1,13 @@
 import numpy as np
 import cadquery as cq
 
-def involute_profile(m, z, pa_deg=20.0, add=1.0, ded=1.25, internal=False, seg=6):
+def involute_profile(m, z, pa_deg=20.0, add=1.0, ded=1.25, internal=False,
+                     seg=6, bl=0.0, rot=0.0):
     """Return list of (x,y) points of a closed involute spur gear profile.
     External: teeth point outward. Internal: material boundary of a ring bore
-    (teeth point inward)."""
+    (teeth point inward).
+    bl  : total angular backlash (rad) -> tooth thickness reduced by bl/2 / side.
+    rot : rigid rotation of the whole profile (rad) for meshing/clocking."""
     a = np.radians(pa_deg)
     rp = m * z / 2.0
     rb = rp * np.cos(a)
@@ -19,7 +22,7 @@ def involute_profile(m, z, pa_deg=20.0, add=1.0, ded=1.25, internal=False, seg=6
         return np.tan(al) - al
 
     inv_p = inv(a)
-    s_half = np.pi / (2.0 * z)     # angular half tooth thickness at pitch
+    s_half = np.pi / (2.0 * z) - bl / 2.0   # angular half tooth thickness at pitch
 
     def phi(r):
         r = np.maximum(r, rb + 1e-9)
@@ -79,11 +82,14 @@ def involute_profile(m, z, pa_deg=20.0, add=1.0, ded=1.25, internal=False, seg=6
             clean.append(p)
     if (clean[0][0]-clean[-1][0])**2 + (clean[0][1]-clean[-1][1])**2 < 1e-8:
         clean.pop()
+    if rot:
+        cr, sr = np.cos(rot), np.sin(rot)
+        clean = [(x*cr - y*sr, x*sr + y*cr) for (x, y) in clean]
     return clean
 
 
-def spur_gear(m, z, width, pa=20.0, bore=0.0):
-    pts = involute_profile(m, z, pa, internal=False)
+def spur_gear(m, z, width, pa=20.0, bore=0.0, bl=0.0, rot=0.0):
+    pts = involute_profile(m, z, pa, internal=False, bl=bl, rot=rot)
     wp = cq.Workplane("XY").polyline(pts).close()
     g = wp.extrude(width)
     if bore > 0:
@@ -91,8 +97,8 @@ def spur_gear(m, z, width, pa=20.0, bore=0.0):
     return g.val()
 
 
-def ring_gear(m, z, width, outer_r, pa=20.0):
-    inner = involute_profile(m, z, pa, internal=True)
+def ring_gear(m, z, width, outer_r, pa=20.0, bl=0.0, rot=0.0):
+    inner = involute_profile(m, z, pa, internal=True, bl=bl, rot=rot)
     face = (cq.Workplane("XY").circle(outer_r)
             .polyline(inner).close())
     # subtract the toothed bore polygon from the outer disk

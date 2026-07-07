@@ -8,9 +8,12 @@ import direct dans SolidWorks / CATIA / Fusion 360, etc.
 
 | Fichier | Description |
 |---|---|
-| `gearbox_encke.step` | Assemblage STEP multi-corps (32 solides, schéma AP214). Unités **mm**. |
+| `gearbox_encke.step` | Assemblage STEP multi-corps (32 solides, schéma AP214). Unités **mm**. Dentures **engrenantes** (interférence 0). |
 | `gearbox.py` | Script paramétrique CadQuery qui construit tout l'assemblage. |
 | `gears.py` | Générateur d'engrenages à profil en **développante de cercle** (extérieur + couronne intérieure). |
+| `shift_simulation.gif` | **Simulation cinématique du changement de rapport** (R1↔R2), entraînée depuis l'arbre moteur. |
+| `mesh_check.py` | Vérification d'engrènement par test d'interférence booléen. |
+| `animate_shift.py` | Génère l'animation du changement de rapport. |
 | `preview_composants.png` | Rendu de chaque composant isolé. |
 | `preview_ensemble.png` | Vue d'ensemble assemblée + vue éclatée. |
 
@@ -44,6 +47,57 @@ import direct dans SolidWorks / CATIA / Fusion 360, etc.
 > Les rapports de réduction indiqués sur les planches (4,10 / 2,15) sont donnés
 > *« à titre d'exemple »*. Ils s'ajustent en changeant `Z_SUN` / `Z_RING` dans
 > `gearbox.py` — le générateur recalcule automatiquement une denture valide.
+
+## Engrènement vérifié (le modèle est simulable)
+
+Le phasage (clocking) des dentures a été calculé puis **vérifié par test
+d'interférence booléen** (`mesh_check.py`) : à la position assemblée, le volume
+d'interpénétration est **0 mm³** aussi bien soleil↔planètes que planètes↔couronne.
+Le train peut donc tourner sans que les dents se bloquent.
+
+- Planètes à 0/120/240° : 120° = 7 pas du soleil (entier) et `Z_soleil` impair ⇒
+  elles engrènent **sans rotation propre** (le côté opposé à une dent est un creux).
+- Couronne tournée d'un **demi-pas** (`180°/Z_couronne = 2,857°`) pour présenter un
+  creux à chaque planète.
+- Jeu d'engrènement (backlash) `0,030 rad` intégré pour un fonctionnement sans
+  serrage.
+
+## Simuler la rotation depuis l'arbre moteur
+
+> ⚠️ **Le format STEP ne stocke aucune contrainte / liaison** (seulement la
+> géométrie et l'arborescence). À l'import, les pièces arrivent donc **sans
+> mates**. La géométrie étant engrenante, il suffit d'ajouter les liaisons
+> ci-dessous dans SolidWorks pour piloter la rotation depuis l'arbre moteur.
+
+**Mates à créer (SolidWorks / Motion Study) :**
+
+1. **Concentrique** de chaque élément sur l'axe machine (Z) : soleil, couronne,
+   porte-planètes, et chaque axe de planète sur le porte-planètes.
+2. **Coïncidence** axiale pour bloquer les translations.
+3. **Mécaniques → Engrenage (Gear mate)** avec les rapports (diamètres primitifs) :
+   - Soleil ↔ chaque planète : rapport **21 : 21 = 1 : 1** (sens opposé)
+   - Planète ↔ couronne : rapport **21 : 63 = 1 : 3**
+4. **Rapport 1** : ajouter un mate **fixe** sur la **couronne** (bloquée au boîtier).
+   Entraîner le **soleil** (moteur) → le porte-planètes tourne à **¼** de la vitesse.
+5. **Rapport 2** : supprimer/désactiver le blocage couronne, ajouter un mate **fixe**
+   sur le **soleil**. Entraîner la **couronne** (moteur) → le porte-planètes tourne
+   à **¾** de la vitesse.
+6. Motor d'entrée : appliquer un **Rotary Motor** sur l'arbre d'entrée dans un
+   *Motion Study*, puis basculer l'élément bloqué pour visualiser le changement.
+
+**Astuce simulation du changement de rapport :** deux *Motion Studies* (un par
+rapport), ou un seul avec des moteurs activés/désactivés dans le temps pour
+reproduire la séquence de la planche 3/4.
+
+## Aperçu de la simulation fournie
+
+`shift_simulation.gif` montre la cinématique **calculée avec les vrais ratios**,
+entraînée depuis l'arbre moteur :
+
+| | Entrée moteur | Élément bloqué | Sortie (porte-planètes) |
+|---|---|---|---|
+| **Rapport 1** | Soleil | Couronne | vitesse ×1 (couple max, `i=4,0`) |
+| **Rapport 2** | Couronne | Soleil | vitesse ×3 (`i=1,33`) |
 
 ## Code couleur (conforme aux planches)
 

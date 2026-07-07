@@ -26,6 +26,13 @@ RP_PL   = M * Z_PL  / 2.0     # 15.75
 RP_RING = M * Z_RING / 2.0    # 47.25
 CARRIER_R = RP_SUN + RP_PL    # 31.5  rayon cercle des axes de planetes
 RING_OUTER = 56.0
+BL = 0.030                    # jeu angulaire d'engrenement (rad) - engrene sans interference
+RING_CLOCK = np.pi / Z_RING   # demi-pas couronne : phasage pour engrener les planetes
+
+# Phasage (verifie par test d'interference booleen, overlap = 0 mm3) :
+#  - planetes a 0/120/240 deg : 120 deg = 7 pas soleil (entier) => engrenent sans
+#    rotation propre (Z_SUN impair => cote oppose = creux).
+#  - couronne tournee d'un demi-pas (RING_CLOCK) pour presenter un creux a chaque planete.
 
 # Rapport 1 (couronne bloquee) : i = 1 + Z_RING/Z_SUN = 4.0
 # Rapport 2 (soleil bloque)    : i = 1 + Z_SUN/Z_RING = 1.33
@@ -120,7 +127,7 @@ def build():
     asm = cq.Assembly(name="ENCKE_Gearbox_Planetaire_2_Rapports")
 
     # --- 6. COURONNE INTERNE (ring) --------------------------------------
-    ring = ring_gear(M, Z_RING, FW, RING_OUTER, PA)
+    ring = ring_gear(M, Z_RING, FW, RING_OUTER, PA, bl=BL, rot=RING_CLOCK)
     # dentelure exterieure de verrouillage (crabot) sur un cote de la couronne
     lockteeth = spur_gear(0.9, 60, 4.0)
     ring_lock = (cq.Workplane("XY").add(lockteeth).translate((0,0,FW))
@@ -129,7 +136,7 @@ def build():
             loc=cq.Location(cq.Vector(0, 0, 0)))
 
     # --- 4. SOLEIL (sun) + arbre d'entree --------------------------------
-    sun = spur_gear(M, Z_SUN, FW, bore=0)
+    sun = spur_gear(M, Z_SUN, FW, bore=0, bl=BL)
     sun = (cq.Workplane().add(sun)
            # moyeu arriere
            .union(cq.Workplane("XY").workplane(offset=FW).circle(9).extrude(6))
@@ -151,7 +158,7 @@ def build():
             loc=cq.Location(cq.Vector(0, 0, -55)))
 
     # --- 5. PLANETES (3x) ------------------------------------------------
-    planet = spur_gear(M, Z_PL, FW, bore=8)
+    planet = spur_gear(M, Z_PL, FW, bore=8, bl=BL)
     for i in range(3):
         a = np.radians(120*i)
         loc = cq.Location(cq.Vector(CARRIER_R*np.cos(a), CARRIER_R*np.sin(a), 0))
